@@ -1,0 +1,14 @@
+[
+  {
+    "address_id": 1,
+    "province": "A",
+    "coord_x": 12.232332,
+    "coord_y": 13.232332
+  },
+  {
+    "address_id": 2,
+    "province": "B",
+    "coord_x": 22.232332,
+    "coord_y": 23.232332
+  }
+]
