@@ -32,10 +32,6 @@ def create_app():
         ENV_PATH = Path.cwd().absolute().joinpath(ENV_FILENAME)
         load_dotenv(ENV_PATH)
 
-        ENV_MONGO_FILENAME: Final = '.env_mongo'
-        ENV_MONGO_PATH = Path.cwd().absolute().joinpath(ENV_MONGO_FILENAME)
-        load_dotenv(ENV_MONGO_PATH)
-
         # -------------------------------------------------------------------------------------
         # DATABASE CONFIGURATION
         # -------------------------------------------------------------------------------------
