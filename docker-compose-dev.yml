@@ -1,0 +1,158 @@
+version: '3.8'
+
+services:
+
+  # -----------------------------------------------------------------------------------
+  # KONTENER BAZY DANYCH NOSQL
+  # -----------------------------------------------------------------------------------
+  mongo:
+    image: mongo
+    volumes:
+      - "mongodb:/data/db"
+    ports:
+      - "27017:27017"
+    networks:
+      - km-flask
+
+  # -----------------------------------------------------------------------------------
+  # KONTENER TESTOWEJ BAZY DANYCH NOSQL
+  # -----------------------------------------------------------------------------------
+  mongo-test:
+    image: mongo
+    volumes:
+      - "mongodb-test:/data/db"
+    ports:
+      - "27018:27018"
+    networks:
+      - km-flask
+
+  # -----------------------------------------------------------------------------------
+  # KONTENER RELACYJNEJ BAZY DANYCH
+  # -----------------------------------------------------------------------------------
+  mysql:
+    env_file:
+      - .env
+    image: mysql:latest
+    volumes:
+      - mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db_1
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user1234
+      MYSQL_TCP_PORT: 3307
+    ports:
+      - '3307:3307'
+    expose:
+      - 3307
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+    networks:
+      - km-flask
+
+  # -----------------------------------------------------------------------------------
+  # KONTENER TESTOWEJ RELACYJNEJ BAZY DANYCH
+  # -----------------------------------------------------------------------------------
+  mysql-test:
+    env_file:
+      - .env
+    image: mysql:latest
+    volumes:
+      - mysql-test:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db_1
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user1234
+      MYSQL_TCP_PORT: 3308
+    ports:
+      - '3308:3308'
+    expose:
+      - 3308
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+    networks:
+      - km-flask
+
+  # -----------------------------------------------------------------------------------
+  # KONTENER APLIKACJI WEBOWEJ PARCEL LOCKERS
+  # -----------------------------------------------------------------------------------
+  flask-parcel-lockers:
+    build:
+      context: ./parcel-locker-app
+      dockerfile: Dockerfile
+    container_name: flask-parcel-lockers
+    command: bash -c "alembic upgrade head && gunicorn --bind 0.0.0.0:8010 --workers 4 'main:create_app()' --reload"
+    volumes:
+      - ./parcel-locker-app:/webapp
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mysql-test:
+        condition: service_healthy
+    ports:
+      - "8010:8010"
+    networks:
+      km-flask:
+        aliases:
+          - flask-parcel-lockers-app
+
+  # -----------------------------------------------------------------------------------
+  # KONTENER APLIKACJI WEBOWEJ CUSTOMERS
+  # -----------------------------------------------------------------------------------
+  flask-customers:
+    build:
+      context: ./customers-app
+      dockerfile: Dockerfile
+    container_name: flask-customers
+    command: bash -c "alembic upgrade head && gunicorn --bind 0.0.0.0:8011 --workers 4 'main:create_app()' --reload"
+    volumes:
+      - ./customers-app:/webapp
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mysql-test:
+        condition: service_healthy
+    ports:
+      - "8011:8011"
+    networks:
+      km-flask:
+        aliases:
+          - flask-customers-app
+
+  # -----------------------------------------------------------------------------------
+  # KONTENER NGINX APLIKACJI WEBOWEJ CUSTOMERS
+  # -----------------------------------------------------------------------------------
+  nginx-customers:
+    image: nginx:latest
+    volumes:
+      - ./customers-app/default.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - '81:81'
+    depends_on:
+      - flask-customers
+    networks:
+      - km-flask
+
+  # -----------------------------------------------------------------------------------
+  # KONTENER NGINX APLIKACJI WEBOWEJ PARCEL LOCKERS
+  # -----------------------------------------------------------------------------------
+  nginx-parcel-lockers:
+    image: nginx:latest
+    volumes:
+      - ./parcel-locker-app/default.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - '80:80'
+    depends_on:
+      - flask-parcel-lockers
+    networks:
+      - km-flask
+
+volumes:
+  mysql:
+  mysql-test:
+  mongodb:
+  mongodb-test:
+
+networks:
+  km-flask:
